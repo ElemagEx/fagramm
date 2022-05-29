@@ -1,2 +1,2 @@
 # fagramm
-Fast context-free grammar checker
+FAst GRAMMar checker
