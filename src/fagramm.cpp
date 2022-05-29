@@ -1,6 +1,7 @@
 #include "fagramm.h"
 
 #include <algorithm>
+#include <cstring>
 #include <cctype>
 
 namespace fagramm

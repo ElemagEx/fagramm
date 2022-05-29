@@ -1,6 +1,6 @@
 ﻿cmake_minimum_required(VERSION 3.8)
 
-set(fagramm_standard 11)
+set(fagramm_standard 17)
 
 project(fagramm)
 
@@ -19,6 +19,12 @@ add_library(
 )
 target_include_directories(fagramm PUBLIC ${fagramm_include})
 
+if(MSVC)
+    set_property(TARGET fagramm PROPERTY CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /JMC /permissive-")
+else()
+    set_property(TARGET fagramm PROPERTY CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wmissing-field-initializers")
+endif()
+
 if(CMAKE_VERSION VERSION_GREATER 3.12)
     set_property(TARGET fagramm PROPERTY CXX_STANDARD ${fagramm_standard})
 endif()
@@ -30,13 +36,13 @@ if(FAGRAMM_DEVELOPMENT)
     )
     target_link_libraries(main fagramm)
 
+    if(MSVC)
+        set_property(TARGET main PROPERTY CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /JMC /permissive-")
+    else()
+        set_property(TARGET main PROPERTY CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wmissing-field-initializers")
+    endif()
+
     if(CMAKE_VERSION VERSION_GREATER 3.12)
         set_property(TARGET main PROPERTY CXX_STANDARD ${fagramm_standard})
     endif()
-endif()
-
-if(MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /JMC /permissive-")
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 endif()

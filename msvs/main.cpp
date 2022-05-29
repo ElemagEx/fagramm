@@ -4,7 +4,7 @@ namespace fagramm
 {
 namespace id
 {
-enum symbol
+enum symbol : int
 {
     NON_SYMBOL,
 
