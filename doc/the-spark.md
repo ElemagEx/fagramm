@@ -1,39 +1,38 @@
-#include "fagramm.h"
+## Intro
 
-namespace fagramm
-{
-namespace id
-{
+During my current professional task (structure formulas processing and calculation) I realized that formula parsing algorithms that I worked with are not quite effective. In my weekend time I reviewed some popular Open Source libraries for grammar checking in [libs.garden](https://libs.garden/cpp/search?q=expression%20grammar&sort=popular).
+I didn't like any of them anyway. They are too template heavy, lambda heavy, too generic, etc. So I decided to write my own Open Source Context-Free Grammar checker library with minimal dependencies and not too many "fency" staff like templates, lambdas, meaningless operator overloading, etc. The Tokenizer was the easy part. The grammar checker was a little more sophisticated but I did it anyway.
+
+### The result
+- my new context-free grammar checker Open Source Library: [fagramm](https://github.com/ElemagEx/fagramm)
+- single header file - 390 lines
+- single implementation file - 615 lines
+- minimum dependencies: `<vector>`, `<algorithm>`, `<cstring>`, `<cctype>`
+- sample grammar for structure formula parsing and checking
+
+#### Here is some sample source source:
+
+1. Define your constants for terminal and non-terminal symbols
+```C++
+namespace fagramm::id {
 enum symbol : int
 {
     NON_SYMBOL,
-
     //Terminal symbols - punctuations
-    P_LPAREN,
-    P_RPAREN,
-    P_COMMA,
-
+    P_LPAREN, P_RPAREN, P_COMMA,
     //Terminal symbols - keywords
-    K_ADD,
-    K_INTERSECT,
-    K_XOR,
-    K_SUBTRACT,
-    K_EXPAND,
-    K_CONTRACT,
-
+    K_ADD, K_INTERSECT, K_XOR, K_SUBTRACT, K_EXPAND, K_CONTRACT,
     //Non-terminal symbols
-    S_EXPRESSION,
-    S_SET_EXPRESSION,
-    S_SET_OPERATION,
-    S_SCALE_EXPRESSION,
-    S_SCALE_OPERATION,
-    S_ARGUMENT,
-    S_MARGIN,
+    S_EXPRESSION, S_SET_EXPRESSION, S_SET_OPERATION,
+    S_SCALE_EXPRESSION, S_SCALE_OPERATION,
+    S_ARGUMENT, S_MARGIN,
 };
 }
-}
 using namespace fagramm::id;
-
+```
+2. Describe your grammar
+```C++
+// All description needed for structure formula parsing and checking
 struct structure_expression
 {
     //
@@ -42,7 +41,6 @@ struct structure_expression
     static constexpr unsigned tokenizer_flags = (0 |
         fagramm::tokenizer::Flag_Case_Sensitive_Keywords
         );
-
     static constexpr fagramm::token_info punctuations[] = {
         {P_LPAREN, "("},
         {P_RPAREN, ")"},
@@ -56,7 +54,6 @@ struct structure_expression
         {K_EXPAND   , "EXPAND"   },
         {K_CONTRACT , "CONTRACT" },
     };
-
     //
     // Grammar data
     //
@@ -75,6 +72,8 @@ struct structure_expression
             .punctuation(P_COMMA)
             .symbol(S_ARGUMENT)
         //  .next()
+            .punctuation(P_COMMA)
+            .symbol(S_ARGUMENT)
             .punctuation(P_RPAREN)
             ;
         rules.add(S_SCALE_EXPRESSION)
@@ -101,43 +100,26 @@ struct structure_expression
         rules.add(S_ARGUMENT).symbol(S_EXPRESSION);
     }
 };
+```
+3. Use the tokenizer and grammar
 
+```C++
+// One-time preparation of tokenizer and grammar ...
 static fagramm::tokenizer s_tokenizer(structure_expression{});
 static fagramm::grammar   s_grammar  (structure_expression{});
-
-fagramm::tokens_t tokens { 200 };
-
-int ret = 0;
-
-bool test_expression(const char* expression)
+// ... and multiple parsing and checking
+bool grammar_check(const char* formula)
 {
-    tokens.clear();
-
-    auto result1 = s_tokenizer.tokenize(tokens, expression);
-
-    if(!result1)
-    {
-        return false;
-    }
-
-    auto result2 = s_grammar.check(tokens);
-
-    if(!result2)
-    {
-        return false;
-    }
-
-    return true;
+	std::vector<token_data> tokens;
+	return s_tokenizer.tokenize(tokens, formula) && s_grammar.check(tokens);
 }
+```
 
-int main()
-{
-    test_expression(R"(ADD("abc", "test"))");
-    test_expression(R"(EXPAND("abc", 1.2))");
-    test_expression(R"(CONTRACT(ADD(CONTRACT("abc", 1.2, 2.3, 3.4), EXPAND("abc", 1.2)), 1.2, 1.2, 1.2, 1.2, 1.2, 1.2))");
+I think the advantages are obvious:
+- fast and safe parsing and checking
+- easy grammar changes
+- ...
 
-    test_expression(R"(XAR("abc", "test"))");
-    test_expression(R"(CONTRACT("abc", 0.5, 0.3))");
+Personally for me grammars are my old (univerity time) love (together with Prolog and Lisp) and I like the way how the library turned out. I have many ideas to extend the library and I plan to develop it from time to time in my free time.
 
-    return 0;
-}
+I will be very glad of you decide to use this library. Enjoy :)
