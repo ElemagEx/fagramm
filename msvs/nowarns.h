@@ -14,4 +14,8 @@
 #pragma warning(disable:4820) // 'bytes' bytes padding added after construct 'member_name'
 #pragma warning(disable:5045) // Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
 
+#ifndef maybe_unused
+#pragma warning(disable:5051) // attribute 'maybe_unused' requires at least '/std:c++17'; ignored
+#endif
+
 #endif

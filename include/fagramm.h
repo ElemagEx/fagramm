@@ -29,7 +29,7 @@ namespace fagramm
 namespace id
 {
 enum symbol : int;
-};
+}
 
 using std::size_t;
 
@@ -101,7 +101,10 @@ public:
     template<class T>
     tokenizer(T&& t)
     {
-        reset(t.punctuations, std::size(t.punctuations), t.keywords, std::size(t.keywords), t.tokenizer_flags);
+        [[maybe_unused]]
+        result_t result = reset(t.punctuations, std::size(t.punctuations), t.keywords, std::size(t.keywords), t.tokenizer_flags);
+
+        Check_ValidState(result);
     }
 
 public:
@@ -316,7 +319,10 @@ public:
     {
         t.add_rules(*this);
 
-        prepare(t.start_symbol);
+        [[maybe_unused]]
+        result_t result = prepare(t.start_symbol);
+
+        Check_ValidState(result);
     }
 
 public:
