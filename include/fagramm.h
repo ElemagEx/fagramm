@@ -101,7 +101,7 @@ public:
     template<class T>
     tokenizer(T&& t)
     {
-        [[maybe_unused]]
+    //  [[maybe_unused]]
         result_t result = reset(t.punctuations, std::size(t.punctuations), t.keywords, std::size(t.keywords), t.tokenizer_flags);
 
         Check_ValidState(result);
@@ -319,7 +319,7 @@ public:
     {
         t.add_rules(*this);
 
-        [[maybe_unused]]
+    //  [[maybe_unused]]
         result_t result = prepare(t.start_symbol);
 
         Check_ValidState(result);
