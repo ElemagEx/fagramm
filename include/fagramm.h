@@ -1,28 +1,13 @@
 #pragma once
 
-//
-// Diagnostics - next macros are ment to be changed according user's needs
-//
-#ifndef FAGRAMM_DIAG
-#define FAGRAMM_DIAG
-namespace fagramm
-{
-namespace diag
-{
-[[noreturn]]
-inline void HALT() { *(int*)0 = 0; }
-inline void STOP() { *(int*)0 = 0; }
-}
-}
+#define Assert_Check(cond)
+#define Assert_Fail()
 
-#define Assert_Check(cond) if(!(cond)) ::fagramm::diag::HALT()
-#define Assert_Fail()                  ::fagramm::diag::HALT()
-
-#define Check_ValidArg(  cond, ...) if(!(cond) && (::fagramm::diag::STOP(), true)) return __VA_ARGS__
-#define Check_ValidState(cond, ...) if(!(cond) && (::fagramm::diag::STOP(), true)) return __VA_ARGS__
-#endif
+#define Check_ValidArg(  cond, ...) if(!(cond)) return __VA_ARGS__
+#define Check_ValidState(cond, ...) if(!(cond)) return __VA_ARGS__
 
 #include <vector>
+#include <string>
 
 namespace fagramm
 {
@@ -30,10 +15,9 @@ namespace id
 {
 enum symbol : int;
 }
+using symbol_id = id::symbol;
 
 using std::size_t;
-
-using symbol_id = id::symbol;
 
 enum class token_type : int
 {
@@ -76,6 +60,7 @@ enum class parse_error : int
     SymbolWithoutRule,
     UnpreparedGramar,
     GrammarCheckFailed,
+    WrongTokenType,
 };
 struct result_t
 {
@@ -187,6 +172,24 @@ private:
 
     size_t   m_max_punct_len = 0;
     unsigned m_flags         = Flag_Default;
+
+public:
+    static parse_error extract_token_number(const char* str, const token_data& token,  float& number);
+    static parse_error extract_token_number(const char* str, const token_data& token, double& number);
+
+    static parse_error extract_token_string(
+        const char* str,
+        const token_data& token,
+        std::string& out,
+        bool unescape  = false,
+        bool addQuotes = false
+        );
+
+    static std::string stringize_tokens(
+        const char* str,
+        const token_data* token_begin,
+        const token_data* token_end
+        );
 };
 
 class rules;
@@ -339,10 +342,21 @@ public:
         ) const;
 
 private:
+    struct loop_data
+    {
+        size_t cur_repeats;
+        size_t min_repeats;
+        size_t max_repeats;
+        size_t first_index;
+        const token_data* token;
+    };
+    using loop_stack_t = std::vector<loop_data>;
+
+private:
     size_t find_symbol_with_id(symbol_id id) const;
     size_t find_or_add_symbol(symbol_id id);
 
-    bool verify_rule(const token_data*& token, const token_data* end, size_t symbol_index) const;
+    bool verify_rule(const token_data*& token, const token_data* end, size_t symbol_index, loop_stack_t& loop_stack) const;
 
     bool verify_token(const token_data*& token, const token_data* end, token_type type) const;
     bool verify_token(const token_data*& token, const token_data* end, token_type type, symbol_id id) const;
@@ -371,18 +385,6 @@ private:
     };
     std::vector<rule_data>   m_rules;
     std::vector<symbol_data> m_symbols;
-
-// CACHE
-private:
-    struct loop_data
-    {
-        size_t cur_repeats;
-        size_t min_repeats;
-        size_t max_repeats;
-        size_t first_index;
-        const token_data* token;
-    };
-    mutable std::vector<loop_data> m_loop_stack {16};
 };
 
 }

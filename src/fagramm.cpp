@@ -326,6 +326,100 @@ bool tokenizer::check_punct(const char*& str, const char* end, context& ctx) con
     return true;
 }
 
+parse_error tokenizer::extract_token_number(const char* str, const token_data& token, float& number)
+{
+    Check_ValidArg(str != nullptr, parse_error::InvalidArguments);
+
+    if(token.type != token_type::number) return parse_error::WrongTokenType;
+
+    const char* start = str + token.pos;
+    char* end;
+    number = std::strtof(str + token.pos, &end);
+
+    Assert_Check(size_t(end - start) == token.len);
+
+    return parse_error::None;
+}
+parse_error tokenizer::extract_token_number(const char* str, const token_data& token, double& number)
+{
+    Check_ValidArg(str != nullptr, parse_error::InvalidArguments);
+
+    if(token.type != token_type::number) return parse_error::WrongTokenType;
+
+    const char* start = str + token.pos;
+    char* end;
+    number = std::strtod(start, &end);
+
+    Assert_Check(size_t(end - start) == token.len);
+
+    return parse_error::None;
+}
+parse_error tokenizer::extract_token_string(
+    const char* str,
+    const token_data& token,
+    std::string& out,
+    bool unescape,
+    bool addQuotes
+    )
+{
+    Check_ValidArg(str != nullptr, parse_error::InvalidArguments);
+
+    if(token.type != token_type::string) return parse_error::WrongTokenType;
+
+    const char* start = str + token.pos;
+    const char* end   = str + token.pos + token.len;
+
+    if(!addQuotes)
+    {
+        ++start;
+        --end;
+    }
+    if(!unescape)
+    {
+        out = std::move(std::string(str, end));
+    }
+    else
+    {
+        out.clear();
+        out.reserve(token.len + 1);
+        for(const char* pch = start; pch < end; ++pch)
+        {
+            if(pch[0] == '\\')
+            {
+                switch(pch[1])
+                {
+                    case '\\': case '\?':
+                    case '\"': case '\'':
+                        ++pch;
+                        break;
+                }
+            }
+            out += *pch;
+        }
+    }
+    return parse_error::None;
+}
+
+std::string tokenizer::stringize_tokens(
+    const char* str,
+    const token_data* token_begin,
+    const token_data* token_end
+    )
+{
+    Check_ValidArg(str         != nullptr, {});
+    Check_ValidArg(token_begin != nullptr, {});
+    Check_ValidArg(token_end   != nullptr, {});
+
+    std::string out;
+
+    for(const token_data* token = token_begin; token <= token_end; ++token)
+    {
+        out.append(str + token->pos, token->len);
+    }
+
+    return out;
+}
+
 void grammar::clear()
 {
     m_start_index = npos;
@@ -460,11 +554,12 @@ result_t grammar::check(
         ? (tokens.data() + tokens.size())
         : (tokens.data() + (index + count));
 
-    if(!verify_rule(token, end, m_start_index))
+    loop_stack_t loop_stack {8};
+
+    if(!verify_rule(token, end, m_start_index, loop_stack))
     {
         return {parse_error::GrammarCheckFailed};
     }
-
     return {parse_error::None};
 }
 
@@ -493,9 +588,9 @@ size_t grammar::find_or_add_symbol(symbol_id id)
     return index;
 }
 
-bool grammar::verify_rule(const token_data*& token, const token_data* end, size_t symbol_index) const
+bool grammar::verify_rule(const token_data*& token, const token_data* end, size_t symbol_index, loop_stack_t& loop_stack) const
 {
-    const size_t local_loop_stack_index = m_loop_stack.size();
+    const size_t local_loop_stack_index = loop_stack.size();
 
     const symbol_data& symbol = m_symbols[symbol_index];
 
@@ -513,7 +608,7 @@ bool grammar::verify_rule(const token_data*& token, const token_data* end, size_
 
             switch(chunk.type)
             {
-                case chunk_type::rule: if(verify_rule(token, end, chunk.arg1)) continue; break;
+                case chunk_type::rule: if(verify_rule(token, end, chunk.arg1, loop_stack)) continue; break;
 
                 case chunk_type::ident : if(verify_token(token, end, token_type::ident )) continue; break;
                 case chunk_type::string: if(verify_token(token, end, token_type::string)) continue; break;
@@ -530,15 +625,15 @@ bool grammar::verify_rule(const token_data*& token, const token_data* end, size_
                         Assert_Check(max_repeats != 0);
                         Assert_Check(min_repeats <= max_repeats);
 
-                        m_loop_stack.push_back({0, chunk.arg1, chunk.arg2, chunk_index, token});
+                        loop_stack.push_back({0, chunk.arg1, chunk.arg2, chunk_index, token});
                     }
                     continue;
 
                 case chunk_type::next:
                     {
-                        Assert_Check(!m_loop_stack.empty());
+                        Assert_Check(!loop_stack.empty());
 
-                        loop_data& current_loop = m_loop_stack.back();
+                        loop_data& current_loop = loop_stack.back();
 
                         if((current_loop.max_repeats == npos) && (token == current_loop.token))
                         {
@@ -547,7 +642,7 @@ bool grammar::verify_rule(const token_data*& token, const token_data* end, size_
                         }
                         if(++current_loop.cur_repeats == current_loop.max_repeats)
                         {
-                            m_loop_stack.pop_back();
+                            loop_stack.pop_back();
                         }
                         else
                         {
@@ -560,19 +655,19 @@ bool grammar::verify_rule(const token_data*& token, const token_data* end, size_
 
                 default: Assert_Fail();
             }
-            if(m_loop_stack.size() > local_loop_stack_index)
+            if(loop_stack.size() > local_loop_stack_index)
             {
-                loop_data& current_loop = m_loop_stack.back();
+                loop_data& current_loop = loop_stack.back();
 
                 if(current_loop.min_repeats <= current_loop.cur_repeats)
                 {
                     while(m_chunks[++chunk_index].type != chunk_type::next) Assert_Check(chunk_index < rule.last_chunk);
                     token = current_loop.token;
-                    m_loop_stack.pop_back();
+                    loop_stack.pop_back();
                     continue;
                 }
 
-                for( ; m_loop_stack.size() > local_loop_stack_index; m_loop_stack.pop_back());
+                for( ; loop_stack.size() > local_loop_stack_index; loop_stack.pop_back());
             }
             break;
         }
