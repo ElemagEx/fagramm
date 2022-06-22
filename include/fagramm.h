@@ -89,7 +89,7 @@ public:
     //  [[maybe_unused]]
         result_t result = reset(t.punctuations, std::size(t.punctuations), t.keywords, std::size(t.keywords), t.tokenizer_flags);
 
-        Check_ValidState(result);
+        Check_ValidState(result,);
     }
 
 public:
@@ -233,7 +233,7 @@ public:
     rule add(symbol_id id)
     {
         m_start_index = npos;
-        m_chunks.push_back({chunk_type::start, id});
+        m_chunks.push_back({chunk_type::start, id, 0, 0});
         return rule(*this);
     }
 
@@ -325,7 +325,7 @@ public:
     //  [[maybe_unused]]
         result_t result = prepare(t.start_symbol);
 
-        Check_ValidState(result);
+        Check_ValidState(result,);
     }
 
 public:

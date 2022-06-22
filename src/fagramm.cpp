@@ -45,12 +45,12 @@ result_t tokenizer::tokenize(
     )
     const
 {
-    Check_ValidArg(str != nullptr, {parse_error::InvalidArguments});
+    Check_ValidArg(str != nullptr, {parse_error::InvalidArguments, symbol_id(0), 0});
 
     context ctx {&tokens, str, str, parse_error::None};
 
     const char* end = ((str + len) < str)
-        ? (const char*)(-1)
+        ? decltype(end)(std::size_t(-1))
         : (str + len);
 
     while((str < end) && (ctx.err == parse_error::None))
@@ -99,7 +99,7 @@ int tokenizer::compare_strings(
 
         if(dif != 0) return dif;
     }
-    return (int)(len1 - len2);
+    return int(len1 - len2);
 }
 
 bool tokenizer::is_valid_punctuation(const char* str)
@@ -117,7 +117,7 @@ result_t tokenizer::reset_punctuations(
     size_t punctuations_count
     )
 {
-    if((punctuations == nullptr) || (punctuations_count == 0)) return {parse_error::None};
+    if((punctuations == nullptr) || (punctuations_count == 0)) return {parse_error::None, symbol_id(0), 0};
 
     for(size_t index = 0; index < punctuations_count; ++index)
     {
@@ -133,7 +133,7 @@ result_t tokenizer::reset_punctuations(
         has_duplicates = has_duplicates || (res == 0);
         return (res < 0);
     });
-    if(has_duplicates) return {parse_error::DuplicatePunctuations};
+    if(has_duplicates) return {parse_error::DuplicatePunctuations, symbol_id(0), 0};
 
     auto it = std::max_element(m_punctuations.begin(), m_punctuations.end(), [] (const token_desc& punctuation1, const token_desc& punctuation2)
     {
@@ -143,7 +143,7 @@ result_t tokenizer::reset_punctuations(
 
     m_max_punct_len = it->len;
 
-    return {parse_error::None};
+    return {parse_error::None, symbol_id(0), 0};
 }
 
 result_t tokenizer::reset_keywords(
@@ -151,7 +151,7 @@ result_t tokenizer::reset_keywords(
     size_t keywords_count
     )
 {
-    if((keywords == nullptr) || (keywords_count == 0)) return {parse_error::None};
+    if((keywords == nullptr) || (keywords_count == 0)) return {parse_error::None, symbol_id(0), 0};
 
     for(size_t index = 0; index < keywords_count; ++index)
     {
@@ -170,9 +170,9 @@ result_t tokenizer::reset_keywords(
         has_duplicates = has_duplicates || (res == 0);
         return (res < 0);
     });
-    if(has_duplicates) return {parse_error::DuplicateKeywords};
+    if(has_duplicates) return {parse_error::DuplicateKeywords, symbol_id(0), 0};
 
-    return {parse_error::None};
+    return {parse_error::None, symbol_id(0), 0};
 }
 
 bool tokenizer::find_punctuation(symbol_id& id, const char* str, size_t len) const
@@ -334,7 +334,7 @@ parse_error tokenizer::extract_token_number(const char* str, const token_data& t
 
     const char* start = str + token.pos;
     char* end;
-    number = std::strtof(str + token.pos, &end);
+    number = std::strtof(start, &end);
 
     Assert_Check(size_t(end - start) == token.len);
 
@@ -376,7 +376,7 @@ parse_error tokenizer::extract_token_string(
     }
     if(!unescape)
     {
-        out = std::move(std::string(str, end));
+        out = std::string(start, end);
     }
     else
     {
@@ -411,6 +411,7 @@ std::string tokenizer::stringize_tokens(
     Check_ValidArg(token_end   != nullptr, {});
 
     std::string out;
+    out.reserve(size_t(token_end->len + token_end->pos - token_begin->pos));
 
     for(const token_data* token = token_begin; token <= token_end; ++token)
     {
@@ -457,7 +458,7 @@ result_t grammar::prepare(symbol_id start_id)
             case chunk_type::loop:
                 if((chunk.arg2 == 0) || (chunk.arg2 < chunk.arg1))
                 {
-                    return {parse_error::InvalidLoopArguments, chunk.id};
+                    return {parse_error::InvalidLoopArguments, chunk.id, 0};
                 }
                 ++loops_count;
                 continue;
@@ -465,7 +466,7 @@ result_t grammar::prepare(symbol_id start_id)
             case chunk_type::next:
                 if(loops_count == 0)
                 {
-                    return {parse_error::NextWithoutLoop, chunk.id};
+                    return {parse_error::NextWithoutLoop, chunk.id, 0};
                 }
                 --loops_count;
                 continue;
@@ -477,13 +478,13 @@ result_t grammar::prepare(symbol_id start_id)
         }
         if(loops_count != 0)
         {
-            return {parse_error::MismatchLoopNextPairs, chunk.id};
+            return {parse_error::MismatchLoopNextPairs, chunk.id, 0};
         }
         symbol_data& symbol = m_symbols[find_or_add_symbol(chunk.id)];
 
         prev_rule_index = m_rules.size();
 
-        m_rules.push_back({chunk.id, (unsigned)symbol.first_rule++, index + 1, npos});
+        m_rules.push_back({chunk.id, unsigned(symbol.first_rule++), index + 1, npos});
     }
     if(prev_rule_index != npos)
     {
@@ -516,7 +517,7 @@ result_t grammar::prepare(symbol_id start_id)
 
         if(index == npos)
         {
-            return {parse_error::SymbolWithoutRule, chunk.id};
+            return {parse_error::SymbolWithoutRule, chunk.id, 0};
         }
         chunk.type = chunk_type::rule;
         chunk.arg1 = index;
@@ -527,12 +528,12 @@ result_t grammar::prepare(symbol_id start_id)
 
         if(index == npos)
         {
-            return {parse_error::SymbolWithoutRule, start_id};
+            return {parse_error::SymbolWithoutRule, start_id, 0};
         }
         m_start_index = index;
     }
  
-    return {parse_error::None, symbol_id(0)};
+    return {parse_error::None, symbol_id(0), 0};
 }
 
 result_t grammar::check(
@@ -542,11 +543,11 @@ result_t grammar::check(
     )
     const
 {
-    Check_ValidState(m_start_index != npos, {parse_error::UnpreparedGramar});
+    Check_ValidState(m_start_index != npos, {parse_error::UnpreparedGramar, symbol_id(0), 0});
 
     if(count == npos) count = tokens.size();
 
-    Check_ValidArg(index < tokens.size(), {parse_error::InvalidArguments});
+    Check_ValidArg(index < tokens.size(), {parse_error::InvalidArguments, symbol_id(0), 0});
 
     const token_data* token = tokens.data() + index;
 
@@ -558,21 +559,21 @@ result_t grammar::check(
 
     if(!verify_rule(token, end, m_start_index, loop_stack))
     {
-        return {parse_error::GrammarCheckFailed};
+        return {parse_error::GrammarCheckFailed, symbol_id(0), 0};
     }
-    return {parse_error::None};
+    return {parse_error::None, symbol_id(0), 0};
 }
 
 size_t grammar::find_symbol_with_id(symbol_id id) const
 {
-    symbol_data symbol {id};
+    symbol_data symbol {id, symbol_id(0), 0};
 
     auto it = std::lower_bound(m_symbols.begin(), m_symbols.end(), symbol);
 
     if(it == m_symbols.end()) return npos;
     if(id != it->id)          return npos;
 
-    return (size_t)std::distance(m_symbols.begin(), it);
+    return size_t(std::distance(m_symbols.begin(), it));
 }
 size_t grammar::find_or_add_symbol(symbol_id id)
 {
@@ -625,7 +626,7 @@ bool grammar::verify_rule(const token_data*& token, const token_data* end, size_
                         Assert_Check(max_repeats != 0);
                         Assert_Check(min_repeats <= max_repeats);
 
-                        loop_stack.push_back({0, chunk.arg1, chunk.arg2, chunk_index, token});
+                        loop_stack.push_back({0, min_repeats, max_repeats, chunk_index, token});
                     }
                     continue;
 

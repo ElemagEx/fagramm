@@ -105,11 +105,11 @@ struct structure_expression
 static fagramm::tokenizer s_tokenizer(structure_expression{});
 static fagramm::grammar   s_grammar  (structure_expression{});
 
-fagramm::tokens_t tokens { 200 };
+static fagramm::tokens_t tokens { 200 };
 
-int ret = 0;
+//static int ret = 0;
 
-bool test_expression(const char* expression)
+static bool test_expression(const char* expression)
 {
     tokens.clear();
 
